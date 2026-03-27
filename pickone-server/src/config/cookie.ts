@@ -1,32 +1,32 @@
 import { CookieOptions } from 'express';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const cookieDomain = process.env.COOKIE_DOMAIN?.trim() || undefined;
+
+const sharedCookieOptions: CookieOptions = {
+   path: '/',
+   httpOnly: true,
+   secure: isProduction,
+   sameSite: isProduction ? 'none' : 'lax',
+   ...(isProduction && cookieDomain ? { domain: cookieDomain } : {}),
+};
 
 // Cookie configuration for different environments
 export const cookieConfig = {
    // Base cookie options
    baseOptions: {
-      path: '/',
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      ...sharedCookieOptions,
    } as CookieOptions,
 
    // Access token options (shorter duration)
    accessToken: {
-      path: '/',
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      ...sharedCookieOptions,
       maxAge: 24 * 60 * 60 * 1000, // 1 day
    } as CookieOptions,
 
    // Refresh token options (longer duration)
    refreshToken: {
-      path: '/',
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      ...sharedCookieOptions,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
    } as CookieOptions,
 };

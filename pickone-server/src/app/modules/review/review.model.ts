@@ -49,4 +49,7 @@ const reviewSchema = new Schema<IReview, IReviewModel>(
    }
 );
 
+// Optimizes published reviews lookup per product
+reviewSchema.index({ product_id: 1, is_published: 1, createdAt: -1 });
+
 export const Review = model<IReview, IReviewModel>('Review', reviewSchema);

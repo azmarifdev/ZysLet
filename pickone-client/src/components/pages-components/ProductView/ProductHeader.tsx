@@ -5,9 +5,10 @@ interface ProductHeaderProps {
     rating: number;
     reviewCount: number;
     isMobile: boolean;
+    productCode?: string;
 }
 
-const ProductHeader: React.FC<ProductHeaderProps> = ({ productName, rating, reviewCount, isMobile }) => {
+const ProductHeader: React.FC<ProductHeaderProps> = ({ productName, rating, reviewCount, isMobile, productCode }) => {
     return (
         <div className={isMobile ? 'md:hidden mb-6' : 'hidden md:block'}>
             <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-gray-800 ${!isMobile && 'mb-4'}`}>
@@ -27,8 +28,20 @@ const ProductHeader: React.FC<ProductHeaderProps> = ({ productName, rating, revi
                     <span className={`${isMobile ? 'ml-1 text-xs' : 'ml-2 text-sm'} text-gray-600`}>
                         {rating.toFixed(1)} ({reviewCount} reviews)
                     </span>
+                    {!isMobile && productCode && (
+                        <span className="ml-3 inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                            Product Code: {productCode}
+                        </span>
+                    )}
                 </div>
             </div>
+            {isMobile && productCode && (
+                <div className={isMobile ? 'mb-3' : 'mb-5'}>
+                    <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                        Product Code: {productCode}
+                    </span>
+                </div>
+            )}
         </div>
     );
 };

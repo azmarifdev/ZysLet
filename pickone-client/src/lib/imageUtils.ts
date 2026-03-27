@@ -2,6 +2,15 @@
  * Utility functions for handling image URLs
  */
 
+const isAbsoluteUrl = (value: string) =>
+    value.startsWith('http://') || value.startsWith('https://');
+
+const optimizeCloudinaryUrl = (url: string): string => {
+    if (!url.includes('res.cloudinary.com')) return url;
+    if (url.includes('/upload/f_auto,q_auto/')) return url;
+    return url.replace('/upload/', '/upload/f_auto,q_auto/');
+};
+
 /**
  * Convert relative image URL to absolute URL
  * Handles both relative and absolute URLs
@@ -12,24 +21,29 @@ export const getImageUrl = (imageUrl: string | undefined | null): string => {
         return '';
     }
 
-    // Get base URL from environment
+    // Get base URL from environment (for legacy relative URLs)
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
-
     const trimmedImageUrl = imageUrl.trim();
-
-    // Clean up URL paths
     const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    let cleanImageUrl = trimmedImageUrl.startsWith('/') ? trimmedImageUrl : `/${trimmedImageUrl}`;
 
-    // If absolute URL is provided, normalize it to current base domain for local/dev compatibility
-    if (trimmedImageUrl.startsWith('http://') || trimmedImageUrl.startsWith('https://')) {
+    // For external absolute URLs (Cloudinary/CDN), keep the original host.
+    if (isAbsoluteUrl(trimmedImageUrl)) {
         try {
-            const parsedUrl = new URL(imageUrl);
-            cleanImageUrl = parsedUrl.pathname;
+            const parsedUrl = new URL(trimmedImageUrl);
+            if (parsedUrl.hostname.includes('res.cloudinary.com')) {
+                return optimizeCloudinaryUrl(trimmedImageUrl);
+            }
+            if (parsedUrl.hostname !== new URL(cleanBaseUrl || parsedUrl.origin).hostname) {
+                return trimmedImageUrl;
+            }
+            return trimmedImageUrl;
         } catch {
-            return imageUrl;
+            return trimmedImageUrl;
         }
     }
+
+    // Clean up legacy local path formats
+    let cleanImageUrl = trimmedImageUrl.startsWith('/') ? trimmedImageUrl : `/${trimmedImageUrl}`;
 
     // 🔧 FIX: Handle legacy wrong URLs with double /tmp/
     // Replace "server-tmp/tmp/" with "server-tmp/" to fix old database records
@@ -45,7 +59,7 @@ export const getImageUrl = (imageUrl: string | undefined | null): string => {
         cleanImageUrl = `/server-tmp/products/${trimmedImageUrl}`;
     }
 
-    return `${cleanBaseUrl}${cleanImageUrl}`;
+    return optimizeCloudinaryUrl(`${cleanBaseUrl}${cleanImageUrl}`);
 };
 
 /**

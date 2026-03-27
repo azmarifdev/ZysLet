@@ -185,10 +185,10 @@ const ReviewDetailsModal: React.FC<ReviewDetailsModalProps> = ({ isOpen, onClose
                                     </h4>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                    {review.images.map((image: string, index: number) => (
+                                    {review.images.map((image: any, index: number) => (
                                         <div key={index} className="relative group">
                                             <Image
-                                                src={getImageUrl(image)}
+                                                src={getImageUrl(typeof image === "string" ? image : image?.url)}
                                                 alt={`Review Image ${index + 1}`}
                                                 width={150}
                                                 height={150}

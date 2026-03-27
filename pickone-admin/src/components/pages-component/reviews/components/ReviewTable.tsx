@@ -93,7 +93,7 @@ const ReviewTable = ({ data, handleAction }: ReviewTableProps) => {
                 <TableBody>
                     {data?.map((review: any, index: number) => (
                         <TableRow
-                            key={review?._id}
+                            key={review?._id || index}
                             className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
                             <TableCell className="px-6 py-4 font-medium text-gray-900">
                                 {String(index + 1).padStart(2, '0')}
@@ -140,9 +140,9 @@ const ReviewTable = ({ data, handleAction }: ReviewTableProps) => {
                             <TableCell className="px-6 py-4">
                                 <div className="max-w-xs">
                                     <p className="text-sm text-gray-700 line-clamp-3 leading-relaxed">
-                                        {review?.comment?.length > 100
-                                            ? `${review?.comment.slice(0, 100)}...`
-                                            : review?.comment || 'No comment provided'}
+                                        {(review?.message || review?.comment)?.length > 100
+                                            ? `${(review?.message || review?.comment).slice(0, 100)}...`
+                                            : review?.message || review?.comment || 'No comment provided'}
                                     </p>
                                 </div>
                             </TableCell>

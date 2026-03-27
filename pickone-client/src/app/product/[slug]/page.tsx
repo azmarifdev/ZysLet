@@ -1,12 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { config } from '@/config/env';
 import { Metadata } from 'next';
-import dynamic from 'next/dynamic';
-
-// Dynamically import client-side only component
-const ProductDetails = dynamic(() => import('./ProductDetails'), {
-    ssr: false,
-});
+import { notFound } from 'next/navigation';
+import ProductDetails from './ProductDetails';
 
 interface ProductPageProps {
     params: {
@@ -14,10 +10,20 @@ interface ProductPageProps {
     };
 }
 
+export const revalidate = 120;
+
 // SSR Metadata without cache
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
     try {
-        const response = await fetch(`${config.BASE_URL}/api/v1/product/by-slug/${params.slug}`, { cache: 'no-store' });
+        const response = await fetch(`${config.BASE_URL}/api/v1/product/by-slug/${params.slug}`, {
+            next: { revalidate: 120 },
+        });
+        if (!response.ok) {
+            return {
+                title: 'Product Not Found | ZysLet',
+                description: 'The requested product could not be found.',
+            };
+        }
 
         const productData = await response.json();
         const product = productData?.data;
@@ -67,18 +73,19 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 // Main SSR page — no cache
 const ProductDetailsPage = async ({ params }: ProductPageProps) => {
-    try {
-        const response = await fetch(
-            `${config.BASE_URL}/api/v1/product/by-slug/${params.slug}`,
-            { cache: 'no-store' }, // No cache at all
-        );
-
-        const product = await response.json();
-
-        return <ProductDetails product={product?.data} />;
-    } catch (error: any) {
-        return <div className="text-center text-red-500 py-10">Product could not be loaded. {error.message}</div>;
+    const response = await fetch(`${config.BASE_URL}/api/v1/product/by-slug/${params.slug}`, {
+        next: { revalidate: 120 },
+    });
+    if (!response.ok) {
+        notFound();
     }
+
+    const product = await response.json();
+    if (!product?.data) {
+        notFound();
+    }
+
+    return <ProductDetails product={product.data} />;
 };
 
 export default ProductDetailsPage;

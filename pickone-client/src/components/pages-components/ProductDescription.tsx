@@ -262,7 +262,11 @@ const ProductDescription = ({ product }: { product: Product }) => {
                         </span>
                         Reviews ({product?.reviews.length})
                     </h2>
-                    <ReviewsTab reviews={product?.reviews} productId={product?._id || ''} />
+                    <ReviewsTab
+                        reviews={product?.reviews}
+                        productId={product?._id || ''}
+                        productCode={product?.code || ''}
+                    />
                 </div>
             </div>
 
@@ -301,7 +305,11 @@ const ProductDescription = ({ product }: { product: Product }) => {
                     )}
                     {activeTab === 'specs' && <SpecificationTabContent specifications={product?.specification || []} />}
                     {activeTab === 'reviews' && (
-                        <ReviewsTab reviews={product?.reviews || []} productId={product?._id || ''} />
+                        <ReviewsTab
+                            reviews={product?.reviews || []}
+                            productId={product?._id || ''}
+                            productCode={product?.code || ''}
+                        />
                     )}
                 </div>
             </div>

@@ -1,33 +1,56 @@
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import cors from 'cors';
 import express, { Application, NextFunction, Request, Response } from 'express';
+import helmet from 'helmet';
 import { StatusCodes } from 'http-status-codes';
 import path from 'path';
+import rateLimit from 'express-rate-limit';
 import { corsOptionsDelegate } from './app/middleware/cors';
 import { globalErrorHandler } from './app/middleware/globalErrorHandler';
 import { trackPageView } from './app/middleware/fbConversionTracker';
 import routes from './app/routes';
 
 const app: Application = express();
+const bodyLimit = process.env.REQUEST_BODY_LIMIT || '10mb';
+const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const rateLimitMax = Number(process.env.RATE_LIMIT_MAX || 600);
 
 // Trust proxy for getting real IP addresses through nginx
 app.set('trust proxy', true);
+
+// Basic security hardening headers
+app.use(
+   helmet({
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: false,
+   })
+);
+
+// Gzip/deflate response compression for faster API responses
+app.use(compression());
 
 // Enable CORS
 app.use(cors(corsOptionsDelegate));
 app.options('*', cors(corsOptionsDelegate));
 
+// Global API rate limiter (protects against abuse and spikes)
+const apiLimiter = rateLimit({
+   windowMs: rateLimitWindowMs,
+   max: rateLimitMax,
+   standardHeaders: true,
+   legacyHeaders: false,
+   message: {
+      success: false,
+      message: 'Too many requests. Please try again after a few minutes.',
+   },
+});
+app.use('/api', apiLimiter);
+
 // Parse cookies and JSON body
 app.use(cookieParser());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
-app.use(
-   express.urlencoded({
-      extended: true,
-      limit: '100mb',
-      parameterLimit: 100000, // Increase if you have many form fields
-   })
-);
+app.use(express.json({ limit: bodyLimit }));
+app.use(express.urlencoded({ extended: true, limit: bodyLimit, parameterLimit: 5000 }));
 
 // Track page views with Facebook Conversion API
 app.use(trackPageView);

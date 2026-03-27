@@ -1,9 +1,9 @@
-const Loader = () => {
+import ProductViewSkeleton from '@/components/pages-components/ProductViewSkeleton';
+
+export default function Loader() {
     return (
-        <div className="flex justify-center items-center h-[80vh]">
-            <div className="rounded-full h-12 w-12 bg-primary animate-ping"></div>
+        <div className="container mx-auto px-0 max-w-7xl py-6">
+            <ProductViewSkeleton />
         </div>
     );
-};
-
-export default Loader;
+}

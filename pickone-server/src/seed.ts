@@ -4,29 +4,38 @@ import config from './config';
 
 async function seed() {
    try {
+      const seedEmail = process.env.ADMIN_SEED_EMAIL || 'zyslet@gmail.com';
+      const seedPassword = process.env.ADMIN_SEED_PASSWORD || '@zyslet1234';
+
       // Connect to MongoDB
       await mongoose.connect(config.database_url as string);
       console.log('Connected to MongoDB.');
 
-      // Check for existing admin
-      const user = await User.findOne({ role: 'admin' });
+      // If admin exists with this email, reset password.
+      // If no admin exists, create one.
+      const existingUser = await User.findOne({ email: seedEmail }).select(
+         '+password'
+      );
 
-      if (user) {
-         console.log('Admin user already exists.');
+      if (existingUser) {
+         existingUser.name = 'Admin';
+         existingUser.role = 'admin';
+         existingUser.password = seedPassword; // pre-save hook will hash
+         await existingUser.save();
+         console.log(`Admin user updated successfully: ${seedEmail}`);
          return;
       }
 
       // Create admin user
-      // Remove manual hashing - let the user model pre-save hook handle it
       const adminUser = new User({
          name: 'Admin',
-         email: 'admin@gmail.com',
-         password: 'admin@', // Plain text password - model will hash it
+         email: seedEmail,
+         password: seedPassword, // Plain text password - model will hash it
          role: 'admin',
       });
 
       await adminUser.save();
-      console.log('Admin user created successfully.', adminUser);
+      console.log(`Admin user created successfully: ${seedEmail}`);
    } catch (error) {
       console.error('Error seeding admin user:', error);
    } finally {

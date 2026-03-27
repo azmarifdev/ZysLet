@@ -12,7 +12,7 @@ export const sendServerTrackingEvent = async (data: any) => {
         const sourceUrl = typeof window !== 'undefined' ? window.location.href : '';
 
         // Use server domain for API calls in production
-        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://server.azmarif.dev';
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://server.zyslet.com';
         const endpoint = `${baseUrl}/api/v1/tracking/event`;
 
         // Send the event data to the server endpoint

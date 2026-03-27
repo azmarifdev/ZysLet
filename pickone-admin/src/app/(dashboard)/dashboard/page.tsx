@@ -5,7 +5,6 @@ import {
     FaCalendarAlt,
     FaEnvelope,
     FaShieldAlt,
-    FaShoppingCart,
     FaBoxOpen,
     FaStar,
     FaArrowUp,
@@ -24,6 +23,7 @@ import ChangePasswordModal from "./ChangePasswordModal";
 import {useState, useEffect} from "react";
 import {useGetOrdersQuery} from "@/redux/api/orderApi";
 import {useProductListsQuery} from "@/redux/api/productApi";
+import {useGetReviewsQuery} from "@/redux/api/reviewApi";
 import Link from "next/link";
 import SimpleChart from "@/components/shared/Analytics/SimpleChart";
 import DashboardSkeleton from "@/components/shared/Loading/DashboardSkeleton";
@@ -142,8 +142,27 @@ const Dashboard = () => {
     const [stats, setStats] = useState({
         totalOrders: 0,
         totalProducts: 0,
+        totalReviews: 0,
         totalRevenue: 0,
         pendingOrders: 0,
+    });
+    const [monthlyNetRevenueData, setMonthlyNetRevenueData] = useState<
+        {label: string; value: number; color: string}[]
+    >([]);
+    const [revenueMetrics, setRevenueMetrics] = useState({
+        grossBookedRevenue: 0,
+        realizedRevenue: 0,
+        pipelineRevenue: 0,
+        lostRevenue: 0,
+        netRevenue: 0,
+        averageOrderValue: 0,
+        projectedMonthRevenue: 0,
+    });
+    const [trendData, setTrendData] = useState({
+        orderTrend: "+0%",
+        orderTrendType: "up" as "up" | "down",
+        revenueTrend: "+0%",
+        revenueTrendType: "up" as "up" | "down",
     });
 
     const {data: ordersData, isLoading: ordersLoading} = useGetOrdersQuery({
@@ -151,38 +170,198 @@ const Dashboard = () => {
     });
     const {data: productsData, isLoading: productsLoading} =
         useProductListsQuery({queries: {limit: 1000}});
+    const {data: reviewsData, isLoading: reviewsLoading} = useGetReviewsQuery({
+        query: "limit=1000",
+    });
 
     const [logoutMutation] = useLogoutMutation();
     const router = useRouter();
 
-    // Calculate statistics
+    // Calculate statistics and monthly performance
     useEffect(() => {
-        if (ordersData?.data) {
-            const orders = ordersData.data;
-            const totalOrders = orders.length;
-            const pendingOrders = orders.filter(
-                (order: any) => order.status === "pending"
-            ).length;
-            const totalRevenue = orders.reduce(
-                (sum: number, order: any) => sum + (order.total_amount || 0),
-                0
+        const orders = ordersData?.data || [];
+        const products = productsData?.data || [];
+        const reviews = reviewsData?.data || [];
+
+        const totalOrders = orders.length;
+        const totalProducts = products.length;
+        const totalReviews = reviews.length;
+        const pendingOrders = orders.filter(
+            (order: any) => order.status === "pending"
+        ).length;
+        const grossBookedRevenue = orders.reduce(
+            (sum: number, order: any) => sum + Number(order.total_price || 0),
+            0,
+        );
+        const realizedRevenue = orders
+            .filter((order: any) => order.status === "completed")
+            .reduce(
+                (sum: number, order: any) => sum + Number(order.total_price || 0),
+                0,
             );
+        const pipelineRevenue = orders
+            .filter(
+                (order: any) =>
+                    order.status === "pending" || order.status === "processing",
+            )
+            .reduce(
+                (sum: number, order: any) => sum + Number(order.total_price || 0),
+                0,
+            );
+        const returnedRevenue = orders
+            .filter((order: any) => order.status === "returned")
+            .reduce(
+                (sum: number, order: any) => sum + Number(order.total_price || 0),
+                0,
+            );
+        const cancelledRevenue = orders
+            .filter((order: any) => order.status === "cancelled")
+            .reduce(
+                (sum: number, order: any) => sum + Number(order.total_price || 0),
+                0,
+            );
+        const lostRevenue = returnedRevenue + cancelledRevenue;
+        const netRevenue = Math.max(0, realizedRevenue - returnedRevenue);
 
-            setStats((prev) => ({
-                ...prev,
-                totalOrders,
-                pendingOrders,
-                totalRevenue,
-            }));
-        }
+        const completedOrdersCount = orders.filter(
+            (order: any) => order.status === "completed",
+        ).length;
+        const averageOrderValue =
+            completedOrdersCount > 0
+                ? Math.round(realizedRevenue / completedOrdersCount)
+                : 0;
 
-        if (productsData?.data) {
-            setStats((prev) => ({
-                ...prev,
-                totalProducts: productsData.data.length,
-            }));
-        }
-    }, [ordersData, productsData]);
+        // Last 6 months revenue chart
+        const monthLabels = Array.from({length: 6}, (_, i) => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - (5 - i));
+            return d.toLocaleDateString("en-US", {month: "short"});
+        });
+
+        const monthNetMap = new Map<string, number>();
+        const monthRealizedMap = new Map<string, number>();
+        const monthReturnedMap = new Map<string, number>();
+        monthLabels.forEach((label) => {
+            monthNetMap.set(label, 0);
+            monthRealizedMap.set(label, 0);
+            monthReturnedMap.set(label, 0);
+        });
+
+        orders.forEach((order: any) => {
+            if (!order?.createdAt) return;
+            const label = new Date(order.createdAt).toLocaleDateString(
+                "en-US",
+                {month: "short"}
+            );
+            if (monthNetMap.has(label)) {
+                const amount = Number(order.total_price || 0);
+                if (order.status === "completed") {
+                    monthRealizedMap.set(
+                        label,
+                        (monthRealizedMap.get(label) || 0) + amount,
+                    );
+                } else if (order.status === "returned") {
+                    monthReturnedMap.set(
+                        label,
+                        (monthReturnedMap.get(label) || 0) + amount,
+                    );
+                }
+            }
+        });
+
+        const monthlyData = monthLabels.map((label) => ({
+            label,
+            value: Math.max(
+                0,
+                (monthRealizedMap.get(label) || 0) -
+                    (monthReturnedMap.get(label) || 0),
+            ),
+            color: "#3b82f6",
+        }));
+
+        // Trend: current month vs previous month
+        const currentMonthRevenue =
+            monthlyData[monthlyData.length - 1]?.value || 0;
+        const previousMonthRevenue =
+            monthlyData[monthlyData.length - 2]?.value || 0;
+        const revenueChangePct =
+            previousMonthRevenue === 0
+                ? currentMonthRevenue > 0
+                    ? 100
+                    : 0
+                : ((currentMonthRevenue - previousMonthRevenue) /
+                      previousMonthRevenue) *
+                  100;
+
+        const currentMonthOrderCount = orders.filter((order: any) => {
+            if (!order?.createdAt) return false;
+            const now = new Date();
+            const d = new Date(order.createdAt);
+            return (
+                d.getMonth() === now.getMonth() &&
+                d.getFullYear() === now.getFullYear()
+            );
+        }).length;
+
+        const previousMonthOrderCount = orders.filter((order: any) => {
+            if (!order?.createdAt) return false;
+            const now = new Date();
+            const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const d = new Date(order.createdAt);
+            return (
+                d.getMonth() === prev.getMonth() &&
+                d.getFullYear() === prev.getFullYear()
+            );
+        }).length;
+
+        const orderChangePct =
+            previousMonthOrderCount === 0
+                ? currentMonthOrderCount > 0
+                    ? 100
+                    : 0
+                : ((currentMonthOrderCount - previousMonthOrderCount) /
+                      previousMonthOrderCount) *
+                  100;
+
+        const now = new Date();
+        const currentDay = now.getDate();
+        const totalDaysInMonth = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+        ).getDate();
+        const projectedMonthRevenue =
+            currentDay > 0
+                ? Math.round((currentMonthRevenue / currentDay) * totalDaysInMonth)
+                : 0;
+
+        setMonthlyNetRevenueData(monthlyData);
+        setRevenueMetrics({
+            grossBookedRevenue,
+            realizedRevenue,
+            pipelineRevenue,
+            lostRevenue,
+            netRevenue,
+            averageOrderValue,
+            projectedMonthRevenue,
+        });
+        setTrendData({
+            orderTrend:
+                `${orderChangePct >= 0 ? "+" : ""}${Math.round(orderChangePct)}%`,
+            orderTrendType: orderChangePct >= 0 ? "up" : "down",
+            revenueTrend:
+                `${revenueChangePct >= 0 ? "+" : ""}${Math.round(revenueChangePct)}%`,
+            revenueTrendType: revenueChangePct >= 0 ? "up" : "down",
+        });
+
+        setStats({
+            totalOrders,
+            totalProducts,
+            totalReviews,
+            pendingOrders,
+            totalRevenue: netRevenue,
+        });
+    }, [ordersData, productsData, reviewsData]);
 
     // Get initials for avatar fallback
     const getInitials = (name: string): string => {
@@ -209,9 +388,71 @@ const Dashboard = () => {
     };
 
     // Show loading skeleton while data is being fetched
-    if (ordersLoading || productsLoading) {
+    if (ordersLoading || productsLoading || reviewsLoading) {
         return <DashboardSkeleton />;
     }
+
+    const orderStatusData = [
+        {
+            label: "Completed",
+            value:
+                ordersData?.data?.filter(
+                    (order: any) => order.status === "completed"
+                ).length || 0,
+            color: "#10b981",
+        },
+        {
+            label: "Processing",
+            value:
+                ordersData?.data?.filter(
+                    (order: any) => order.status === "processing"
+                ).length || 0,
+            color: "#3b82f6",
+        },
+        {
+            label: "Pending",
+            value:
+                ordersData?.data?.filter(
+                    (order: any) => order.status === "pending"
+                ).length || 0,
+            color: "#f59e0b",
+        },
+        {
+            label: "Cancelled",
+            value:
+                ordersData?.data?.filter(
+                    (order: any) => order.status === "cancelled"
+                ).length || 0,
+            color: "#ef4444",
+        },
+    ];
+
+    const reviewStatusData = [
+        {
+            label: "Approved Reviews",
+            value:
+                reviewsData?.data?.filter(
+                    (review: any) => review.status === "approved"
+                ).length || 0,
+            color: "#22c55e",
+        },
+        {
+            label: "Pending Reviews",
+            value:
+                reviewsData?.data?.filter(
+                    (review: any) => review.status === "pending"
+                ).length || 0,
+            color: "#f59e0b",
+        },
+        {
+            label: "Rejected Reviews",
+            value:
+                reviewsData?.data?.filter(
+                    (review: any) => review.status === "rejected"
+                ).length || 0,
+            color: "#ef4444",
+        },
+    ];
 
     return (
         <div className="space-y-8">
@@ -239,8 +480,8 @@ const Dashboard = () => {
                     title="Total Orders"
                     value={stats.totalOrders}
                     icon={TbMenuOrder}
-                    trend="up"
-                    trendValue="+12%"
+                    trend={trendData.orderTrendType}
+                    trendValue={trendData.orderTrend}
                     color="blue"
                     href="/orders"
                 />
@@ -254,21 +495,21 @@ const Dashboard = () => {
                     href="/product/manage-product"
                 />
                 <StatCard
-                    title="Total Revenue"
+                    title="Net Revenue"
                     value={`৳${stats.totalRevenue.toLocaleString()}`}
                     icon={MdTrendingUp}
-                    trend="up"
-                    trendValue="+18%"
+                    trend={trendData.revenueTrendType}
+                    trendValue={trendData.revenueTrend}
                     color="purple"
                 />
                 <StatCard
-                    title="Pending Orders"
-                    value={stats.pendingOrders}
-                    icon={FaShoppingCart}
-                    trend={stats.pendingOrders > 5 ? "up" : "down"}
-                    trendValue={stats.pendingOrders > 5 ? "High" : "Low"}
-                    color={stats.pendingOrders > 5 ? "orange" : "green"}
-                    href="/orders"
+                    title="Total Reviews"
+                    value={stats.totalReviews}
+                    icon={FaStar}
+                    trend="up"
+                    trendValue={`${reviewStatusData[1]?.value || 0} pending`}
+                    color="orange"
+                    href="/reviews"
                 />
             </div>
 
@@ -309,63 +550,93 @@ const Dashboard = () => {
                 <SimpleChart
                     title="Order Status Distribution"
                     type="doughnut"
+                    data={orderStatusData}
+                />
+                <SimpleChart
+                    title="Monthly Net Revenue (Last 6 Months)"
+                    type="bar"
+                    data={monthlyNetRevenueData}
+                />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-scale-in">
+                <SimpleChart
+                    title="Revenue Composition"
+                    type="doughnut"
                     data={[
                         {
-                            label: "Completed",
-                            value:
-                                ordersData?.data?.filter(
-                                    (order: any) => order.status === "completed"
-                                ).length || 0,
-                            color: "#10b981",
+                            label: "Realized",
+                            value: Math.round(revenueMetrics.realizedRevenue),
+                            color: "#22c55e",
                         },
                         {
-                            label: "Processing",
-                            value:
-                                ordersData?.data?.filter(
-                                    (order: any) =>
-                                        order.status === "processing"
-                                ).length || 0,
+                            label: "Pipeline",
+                            value: Math.round(revenueMetrics.pipelineRevenue),
                             color: "#3b82f6",
                         },
                         {
-                            label: "Pending",
-                            value:
-                                ordersData?.data?.filter(
-                                    (order: any) => order.status === "pending"
-                                ).length || 0,
-                            color: "#f59e0b",
-                        },
-                        {
-                            label: "Cancelled",
-                            value:
-                                ordersData?.data?.filter(
-                                    (order: any) => order.status === "cancelled"
-                                ).length || 0,
+                            label: "Lost/Returned",
+                            value: Math.round(revenueMetrics.lostRevenue),
                             color: "#ef4444",
                         },
                     ]}
                 />
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Revenue Intelligence
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl bg-green-50 border border-green-100">
+                            <p className="text-xs text-green-700 font-medium">
+                                Realized Revenue
+                            </p>
+                            <p className="text-xl font-bold text-green-800">
+                                ৳{Math.round(revenueMetrics.realizedRevenue).toLocaleString()}
+                            </p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                            <p className="text-xs text-blue-700 font-medium">
+                                Pipeline Revenue
+                            </p>
+                            <p className="text-xl font-bold text-blue-800">
+                                ৳{Math.round(revenueMetrics.pipelineRevenue).toLocaleString()}
+                            </p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-red-50 border border-red-100">
+                            <p className="text-xs text-red-700 font-medium">
+                                Lost / Returned
+                            </p>
+                            <p className="text-xl font-bold text-red-800">
+                                ৳{Math.round(revenueMetrics.lostRevenue).toLocaleString()}
+                            </p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-purple-50 border border-purple-100">
+                            <p className="text-xs text-purple-700 font-medium">
+                                Average Order Value
+                            </p>
+                            <p className="text-xl font-bold text-purple-800">
+                                ৳{Math.round(revenueMetrics.averageOrderValue).toLocaleString()}
+                            </p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 sm:col-span-2">
+                            <p className="text-xs text-amber-700 font-medium">
+                                Projected This Month (Run Rate)
+                            </p>
+                            <p className="text-2xl font-bold text-amber-800">
+                                ৳{Math.round(revenueMetrics.projectedMonthRevenue).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                                Based on current month net revenue pace
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className="animate-scale-in">
                 <SimpleChart
-                    title="Monthly Performance"
+                    title="Review Moderation Overview"
                     type="bar"
-                    data={[
-                        {
-                            label: "Orders",
-                            value: stats.totalOrders,
-                            color: "#3b82f6",
-                        },
-                        {
-                            label: "Products",
-                            value: stats.totalProducts,
-                            color: "#10b981",
-                        },
-                        {label: "Reviews", value: 45, color: "#8b5cf6"},
-                        {
-                            label: "Revenue (K)",
-                            value: Math.round(stats.totalRevenue / 1000),
-                            color: "#f59e0b",
-                        },
-                    ]}
+                    data={reviewStatusData}
                 />
             </div>
 

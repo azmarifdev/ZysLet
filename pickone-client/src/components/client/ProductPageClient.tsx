@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ProductCard from '@/components/reusable/ProductCard';
 import { ProductFilters } from '@/app/productPage/components/ProductFilters';
 import { ProductPagination } from '@/app/productPage/components/ProductPagination';
+import { ActiveFilters } from '@/app/productPage/components/ActiveFilters';
 import useCategory from '@/hooks/useCategory';
 import { useSearchParams } from './SearchParamsProvider';
 import { config } from '@/config/env';
@@ -29,9 +30,12 @@ const ProductPageClient: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<string>('desc');
     const [minRating, setMinRating] = useState<number>(0);
     const [searchQuery, setSearchQuery] = useState<string>('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('');
     const [showFilters, setShowFilters] = useState<boolean>(false);
+    const [error, setError] = useState<string>('');
 
     const [initialParamsLoaded, setInitialParamsLoaded] = useState(false);
+    const selectedCategoryLabel = categories.find((cat) => cat.id === selectedCategory)?.title || '';
 
     // Handle URL params (only once on mount)
     useEffect(() => {
@@ -44,52 +48,60 @@ const ProductPageClient: React.FC = () => {
         setInitialParamsLoaded(true); // Mark as loaded
     }, [searchParams]);
 
-    // Fetch products
-    const fetchProducts = async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            if (searchQuery) params.append('search', searchQuery);
-            if (selectedCategory) params.append('category', selectedCategory);
-            if (selectedPriceRange.max) {
-                params.append('min_price', selectedPriceRange.min.toString());
-                params.append(
-                    'max_price',
-                    selectedPriceRange.max === 'Infinity' ? '999999999' : selectedPriceRange.max.toString(),
-                );
-            }
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery.trim());
+        }, 350);
 
-            params.append('sortBy', selectedSort === 'price-high' ? 'price' : selectedSort);
-            params.append('sortOrder', sortOrder);
-            params.append('page', currentPage.toString());
-            params.append('limit', productsPerPage.toString());
-
-            const response = await fetch(`${config.BASE_URL}/api/v1/product/list?${params.toString()}`);
-            const data = await response.json();
-
-            setAllProducts(data.data || []);
-            setTotalPages(Math.ceil(data.meta.total / productsPerPage));
-            setTotalProducts(data.meta.total);
-        } catch (err) {
-            console.error('Error:', err);
-            setAllProducts([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+        return () => clearTimeout(timeout);
+    }, [searchQuery]);
 
     // Trigger fetch AFTER initial URL param load
     useEffect(() => {
         if (!initialParamsLoaded) return;
 
-        const timeout = setTimeout(() => {
-            fetchProducts();
-        }, 300);
+        const controller = new AbortController();
+        const params = new URLSearchParams();
 
-        return () => clearTimeout(timeout);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
+        if (selectedCategory) params.append('category', selectedCategory);
+        if (selectedPriceRange?.max) {
+            params.append('min_price', selectedPriceRange.min.toString());
+            params.append('max_price', selectedPriceRange.max === Infinity ? '999999999' : selectedPriceRange.max.toString());
+        }
+
+        params.append('sortBy', selectedSort === 'price-high' ? 'price' : selectedSort);
+        params.append('sortOrder', sortOrder);
+        params.append('page', currentPage.toString());
+        params.append('limit', productsPerPage.toString());
+
+        const fetchProducts = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const response = await fetch(`${config.BASE_URL}/api/v1/product/list?${params.toString()}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) throw new Error('Failed to load product list');
+                const data = await response.json();
+                setAllProducts(data.data || []);
+                setTotalPages(Math.ceil((data?.meta?.total || 0) / productsPerPage));
+                setTotalProducts(data?.meta?.total || 0);
+            } catch (err: any) {
+                if (err?.name === 'AbortError') return;
+                setError('Could not load products right now. Please try again.');
+                setAllProducts([]);
+                setTotalPages(0);
+                setTotalProducts(0);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProducts();
+        return () => controller.abort();
     }, [
-        searchQuery,
+        debouncedSearchQuery,
         selectedCategory,
         selectedPriceRange,
         minRating,
@@ -99,6 +111,11 @@ const ProductPageClient: React.FC = () => {
         productsPerPage,
         initialParamsLoaded,
     ]);
+
+    useEffect(() => {
+        if (!initialParamsLoaded) return;
+        setCurrentPage(1);
+    }, [debouncedSearchQuery, selectedCategory, selectedPriceRange, selectedSort, sortOrder, productsPerPage, initialParamsLoaded]);
 
     const paginate = (page: number) => {
         setCurrentPage(page);
@@ -128,10 +145,15 @@ const ProductPageClient: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="flex flex-col items-center">
-                    <div className="w-16 h-16 border-t-4 border-blue-600 border-solid rounded-full animate-spin mb-4" />
-                    <p className="text-gray-600">Loading products...</p>
+            <div className="py-8">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 mb-8">
+                    {Array.from({ length: 12 }).map((_, idx) => (
+                        <div key={idx} className="bg-white rounded-xl border border-gray-100 p-3 animate-pulse">
+                            <div className="h-40 bg-gray-200 rounded-lg mb-3" />
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                            <div className="h-4 bg-gray-200 rounded w-1/2" />
+                        </div>
+                    ))}
                 </div>
             </div>
         );
@@ -152,9 +174,9 @@ const ProductPageClient: React.FC = () => {
                         </p>
                     </div>
                     <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-2">
-                        {searchQuery && (
+                        {debouncedSearchQuery && (
                             <div className="text-sm bg-blue-50 px-4 py-2 rounded-lg">
-                                Search results for: <span className="font-semibold">{searchQuery}</span>
+                                Search results for: <span className="font-semibold">{debouncedSearchQuery}</span>
                             </div>
                         )}
                         {selectedCategory && categories.length > 0 && (
@@ -231,6 +253,36 @@ const ProductPageClient: React.FC = () => {
                                 </select>
                             </div>
                         </div>
+
+                        <div className="md:hidden mb-4">
+                            <input
+                                type="text"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 placeholder:text-gray-500 text-gray-900 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Search by product name..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        <ActiveFilters
+                            selectedCategory={selectedCategory}
+                            selectedCategoryLabel={selectedCategoryLabel}
+                            selectedPriceRange={selectedPriceRange}
+                            minRating={minRating}
+                            searchQuery={debouncedSearchQuery}
+                            setSelectedCategory={setSelectedCategory}
+                            setSelectedPriceRange={setSelectedPriceRange}
+                            setMinRating={setMinRating}
+                            setSearchQuery={setSearchQuery}
+                            resetFilters={resetFilters}
+                            activeFiltersCount={0}
+                        />
+
+                        {error && (
+                            <div className="mb-4 bg-red-50 border border-red-100 text-red-700 text-sm rounded-lg p-3">
+                                {error}
+                            </div>
+                        )}
 
                         {allProducts.length === 0 ? (
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10 text-center">

@@ -1,18 +1,11 @@
 import Link from "next/link";
-import {FC, lazy} from "react";
+import {FC} from "react";
 
 import {Product} from "../types";
+import ProductView from "@/components/pages-components/ProductView";
+import ProductDescription from "@/components/pages-components/ProductDescription";
+import ProductCarousel from "@/components/reusable/ProductCarousel";
 
-// Lazy load components
-const ProductView = lazy(
-    () => import("@/components/pages-components/ProductView")
-);
-const ProductDescription = lazy(
-    () => import("@/components/pages-components/ProductDescription")
-);
-const ProductCarousel = lazy(
-    () => import("@/components/reusable/ProductCarousel")
-);
 
 interface ProductDetailsProps {
     product: Product;
@@ -32,7 +25,7 @@ const ProductDetails: FC<ProductDetailsProps> = ({product}) => {
                         </Link>
                         <span className="mx-2 text-gray-400">/</span>
                         <Link
-                            href="/productDetails"
+                            href="/productPage"
                             className="text-gray-500 hover:text-blue-600 transition-colors">
                             Products
                         </Link>

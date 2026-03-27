@@ -1,31 +1,40 @@
 import { Request } from 'express';
 import { CorsOptions } from 'cors';
+import config from '../../config';
 
-const origins = [
+const defaultOrigins = [
    'http://localhost:3000',
    'http://localhost:3001',
    'http://localhost:4000',
    'http://localhost:5000',
-
-   // Development IPs
-   'http://103.213.38.213',
-   'http://103.213.38.213:3000',
-   'http://103.213.38.213:4000',
-   'http://103.213.38.213:5000',
-
-   // Vercel preview/staging
-   'https://admin-frontend-xi-ten.vercel.app',
-   'https://pickone-client-site.vercel.app',
-
-   // Production domains
-   'https://admin.azmarif.dev',
-   'https://client.azmarif.dev',
-   'https://server.azmarif.dev', // <-- ✅ add if used
-
    'https://admin.zyslet.com',
    'https://zyslet.com',
    'https://server.zyslet.com',
+   'https://pickone-server.onrender.com',
 ];
+
+const envOrigins = [config.client_url, config.admin_url, config.api_url].filter(
+   Boolean
+) as string[];
+
+const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
+
+const allowedOrigins = new Set(
+   [...defaultOrigins, ...envOrigins]
+      .filter(Boolean)
+      .map(origin => normalizeOrigin(origin))
+);
+
+const envCorsOrigins =
+   process.env.CORS_ORIGIN?.split(',')
+      .map(origin => normalizeOrigin(origin))
+      .filter(Boolean) || [];
+
+envCorsOrigins.forEach(origin => allowedOrigins.add(origin));
+
+const isVercelPreviewOrigin = (origin: string) =>
+   /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
+
 export const corsOptionsDelegate = function (
    req: Request,
    callback: (err: Error | null, options?: CorsOptions) => void
@@ -39,18 +48,31 @@ export const corsOptionsDelegate = function (
          origin: true,
          credentials: true,
          methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-         allowedHeaders: ['Content-Type', 'Authorization'],
+         allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-Requested-With',
+            'Accept',
+         ],
          exposedHeaders: ['Content-Disposition'],
+         maxAge: 86400,
       };
    } else if (
-      origins.some(allowedOrigin => origin?.startsWith(allowedOrigin))
+      allowedOrigins.has(normalizeOrigin(origin)) ||
+      isVercelPreviewOrigin(origin)
    ) {
       corsOptions = {
-         origin: true,
+         origin,
          credentials: true,
          methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-         allowedHeaders: ['Content-Type', 'Authorization'],
+         allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-Requested-With',
+            'Accept',
+         ],
          exposedHeaders: ['Content-Disposition'],
+         maxAge: 86400,
       };
    } else {
       corsOptions = { origin: false, credentials: false };

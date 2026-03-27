@@ -6,9 +6,10 @@ import { Review } from '@/app/product/types';
 interface ReviewsTabProps {
     reviews: Review[];
     productId: string;
+    productCode?: string;
 }
 
-const ReviewsTab: React.FC<ReviewsTabProps> = ({ reviews, productId }) => {
+const ReviewsTab: React.FC<ReviewsTabProps> = ({ reviews, productId, productCode }) => {
     const [isReviewAdded, setIsReviewAdded] = useState(false);
 
     // Calculate average rating
@@ -39,6 +40,7 @@ const ReviewsTab: React.FC<ReviewsTabProps> = ({ reviews, productId }) => {
                         <p className="text-gray-500 text-sm">
                             {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
                         </p>
+                        {productCode && <p className="text-gray-600 text-sm mt-1">Product Code: {productCode}</p>}
                     </div>
 
                     <div className="flex-1 h-20 flex items-center justify-center md:justify-end">

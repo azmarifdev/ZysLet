@@ -8,6 +8,7 @@ interface PriceRange {
 
 interface ActiveFiltersProps {
     selectedCategory: string;
+    selectedCategoryLabel?: string;
     selectedPriceRange: PriceRange | null;
     minRating: number;
     searchQuery: string;
@@ -26,6 +27,7 @@ interface ActiveFiltersProps {
 
 export const ActiveFilters: React.FC<ActiveFiltersProps> = ({
     selectedCategory,
+    selectedCategoryLabel,
     selectedPriceRange,
     minRating,
     searchQuery,
@@ -35,16 +37,21 @@ export const ActiveFilters: React.FC<ActiveFiltersProps> = ({
     setSearchQuery,
     resetFilters,
 }) => {
+    const hasCategory = Boolean(selectedCategory);
+    const hasPrice =
+        (selectedPriceRange?.min ?? 0) > 0 ||
+        (selectedPriceRange?.max ?? Infinity) < Infinity;
+
     return (
         <div className="mb-6 bg-blue-50 p-3 rounded-lg border border-blue-100">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium text-gray-700">Active filters:</span>
 
-                {selectedCategory !== 'All Categories' && (
+                {hasCategory && (
                     <span className="flex items-center bg-white text-sm px-3 py-1 rounded-full border border-gray-300">
-                        {selectedCategory}
+                        {selectedCategoryLabel || selectedCategory}
                         <button
-                            onClick={() => setSelectedCategory('All Categories')}
+                            onClick={() => setSelectedCategory('')}
                             className="ml-1 text-gray-500 hover:text-gray-700">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -63,17 +70,11 @@ export const ActiveFilters: React.FC<ActiveFiltersProps> = ({
                     </span>
                 )}
 
-                {selectedPriceRange && (selectedPriceRange.min > 0 || selectedPriceRange.max < Infinity) && (
+                {hasPrice && (
                     <span className="flex items-center bg-white text-sm px-3 py-1 rounded-full border border-gray-300">
-                        {selectedPriceRange.label}
+                        {selectedPriceRange?.label || 'Price Filter'}
                         <button
-                            onClick={() =>
-                                setSelectedPriceRange({
-                                    label: 'All Prices',
-                                    min: 0,
-                                    max: Infinity,
-                                })
-                            }
+                            onClick={() => setSelectedPriceRange(null)}
                             className="ml-1 text-gray-500 hover:text-gray-700">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -134,9 +135,13 @@ export const ActiveFilters: React.FC<ActiveFiltersProps> = ({
                     </span>
                 )}
 
-                <button onClick={resetFilters} className="text-xs text-blue-600 hover:underline ml-auto">
-                    Clear all filters
-                </button>
+                {(hasCategory || hasPrice || minRating > 0 || Boolean(searchQuery)) && (
+                    <button
+                        onClick={resetFilters}
+                        className="text-xs text-blue-600 hover:underline ml-auto">
+                        Clear all filters
+                    </button>
+                )}
             </div>
         </div>
     );

@@ -14,7 +14,7 @@ interface SimpleChartProps {
 }
 
 const SimpleChart: React.FC<SimpleChartProps> = ({ title, data, type }) => {
-    const maxValue = Math.max(...data.map((d) => d.value));
+    const maxValue = Math.max(1, ...data.map((d) => d.value));
 
     if (type === 'bar') {
         return (
@@ -31,7 +31,7 @@ const SimpleChart: React.FC<SimpleChartProps> = ({ title, data, type }) => {
                                 <div
                                     className="h-2 rounded-full transition-all duration-500"
                                     style={{
-                                        width: `${(item.value / maxValue) * 100}%`,
+                                        width: `${Math.max((item.value / maxValue) * 100, item.value > 0 ? 4 : 0)}%`,
                                         backgroundColor: item.color,
                                     }}></div>
                             </div>
@@ -42,28 +42,31 @@ const SimpleChart: React.FC<SimpleChartProps> = ({ title, data, type }) => {
         );
     }
 
-    // Simple doughnut chart representation
     const total = data.reduce((sum, item) => sum + item.value, 0);
+    const gradientStops = data.reduce(
+        (acc, item) => {
+            const percentage = total > 0 ? (item.value / total) * 100 : 0;
+            const start = acc.current;
+            const end = start + percentage;
+            acc.stops.push(`${item.color} ${start}% ${end}%`);
+            acc.current = end;
+            return acc;
+        },
+        {stops: [] as string[], current: 0},
+    );
+    const conicBg =
+        total > 0 ? `conic-gradient(${gradientStops.stops.join(', ')})` : 'conic-gradient(#e5e7eb 0% 100%)';
 
     return (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
             <div className="flex items-center justify-center mb-4">
                 <div className="relative w-32 h-32">
-                    <div className="w-32 h-32 rounded-full border-8 border-gray-200"></div>
-                    {data.map((item, index) => {
-                        const percentage = (item.value / total) * 100;
-                        const angle = (percentage / 100) * 360;
-                        return (
-                            <div
-                                key={index}
-                                className="absolute inset-0 w-32 h-32 rounded-full"
-                                style={{
-                                    background: `conic-gradient(${item.color} 0deg ${angle}deg, transparent ${angle}deg 360deg)`,
-                                    transform: `rotate(${index * (360 / data.length)}deg)`,
-                                }}></div>
-                        );
-                    })}
+                    <div
+                        className="w-32 h-32 rounded-full"
+                        style={{
+                            background: conicBg,
+                        }}></div>
                     <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
                         <span className="text-lg font-bold text-gray-900">{total}</span>
                     </div>

@@ -77,6 +77,35 @@ const Reviews = () => {
         isFetching,
     } = useGetReviewsQuery({query: queries});
 
+    // Summary queries for functional counters across all pages
+    const {data: allReviewsSummary} = useGetReviewsQuery({
+        query: "page=1&limit=1",
+    });
+    const {data: pendingReviewsSummary} = useGetReviewsQuery({
+        query: "page=1&limit=1&status=pending",
+    });
+    const {data: approvedReviewsSummary} = useGetReviewsQuery({
+        query: "page=1&limit=1&status=approved",
+    });
+    const {data: rejectedReviewsSummary} = useGetReviewsQuery({
+        query: "page=1&limit=1&status=rejected",
+    });
+
+    const totalReviews = allReviewsSummary?.meta?.total || 0;
+    const pendingReviews = pendingReviewsSummary?.meta?.total || 0;
+    const approvedReviews = approvedReviewsSummary?.meta?.total || 0;
+    const rejectedReviews = rejectedReviewsSummary?.meta?.total || 0;
+    const averageRating =
+        reviews?.data?.length > 0
+            ? (
+                  reviews.data.reduce(
+                      (sum: number, review: any) =>
+                          sum + Number(review.rating || 0),
+                      0
+                  ) / reviews.data.length
+              ).toFixed(1)
+            : "0.0";
+
     // Calculate total pages
     useEffect(() => {
         if (reviews?.meta?.total) {
@@ -173,7 +202,7 @@ const Reviews = () => {
                                     Total Reviews
                                 </p>
                                 <p className="text-2xl font-bold text-blue-900">
-                                    {reviews?.meta?.total || 0}
+                                    {totalReviews}
                                 </p>
                             </div>
                             <div className="p-3 bg-blue-200 rounded-full">
@@ -191,10 +220,7 @@ const Reviews = () => {
                                     Pending Reviews
                                 </p>
                                 <p className="text-2xl font-bold text-yellow-900">
-                                    {reviews?.data?.filter(
-                                        (review: any) =>
-                                            review.status === "pending"
-                                    ).length || 0}
+                                    {pendingReviews}
                                 </p>
                             </div>
                             <div className="p-3 bg-yellow-200 rounded-full">
@@ -212,10 +238,7 @@ const Reviews = () => {
                                     Approved Reviews
                                 </p>
                                 <p className="text-2xl font-bold text-green-900">
-                                    {reviews?.data?.filter(
-                                        (review: any) =>
-                                            review.status === "approved"
-                                    ).length || 0}
+                                    {approvedReviews}
                                 </p>
                             </div>
                             <div className="p-3 bg-green-200 rounded-full">
@@ -233,10 +256,7 @@ const Reviews = () => {
                                     Rejected Reviews
                                 </p>
                                 <p className="text-2xl font-bold text-red-900">
-                                    {reviews?.data?.filter(
-                                        (review: any) =>
-                                            review.status === "rejected"
-                                    ).length || 0}
+                                    {rejectedReviews}
                                 </p>
                             </div>
                             <div className="p-3 bg-red-200 rounded-full">
@@ -246,6 +266,17 @@ const Reviews = () => {
                     </CardContent>
                 </Card>
             </div>
+
+            <Card className="shadow-md border border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+                <CardContent className="p-4 flex items-center justify-between">
+                    <p className="text-sm text-gray-700">
+                        Showing <span className="font-semibold">{reviews?.data?.length || 0}</span> reviews on this page
+                    </p>
+                    <p className="text-sm text-gray-700">
+                        Average Rating: <span className="font-semibold text-indigo-700">{averageRating} / 5</span>
+                    </p>
+                </CardContent>
+            </Card>
 
             {/* Filters */}
             <Card className="shadow-lg border-0 bg-white">

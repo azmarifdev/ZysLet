@@ -21,6 +21,18 @@ export const ProductPagination: React.FC<PaginationProps> = ({
     goToNextPage,
     setProductsPerPage,
 }) => {
+    const pageNumbers = Array.from({length: totalPages}, (_, index) => index + 1);
+    const visiblePages = pageNumbers.filter(
+        (page) => page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1),
+    );
+
+    const withEllipsis: (number | string)[] = [];
+    visiblePages.forEach((page, idx) => {
+        withEllipsis.push(page);
+        const next = visiblePages[idx + 1];
+        if (next && next - page > 1) withEllipsis.push('...');
+    });
+
     return (
         <div className="flex flex-col items-center space-y-5 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             {totalPages > 1 && (
@@ -67,23 +79,24 @@ export const ProductPagination: React.FC<PaginationProps> = ({
                     </svg>
                 </button>
 
-                {Array.from({length: totalPages}).map((_, index) => {
-                    const pageNum = index + 1;
-                    const isCurrentPage = pageNum === currentPage;
-
-                    return (
+                {withEllipsis.map((item, index) =>
+                    item === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-2 text-gray-400">
+                            ...
+                        </span>
+                    ) : (
                         <button
-                            key={pageNum}
-                            onClick={() => paginate(pageNum)}
+                            key={item}
+                            onClick={() => paginate(Number(item))}
                             className={`px-3 py-1 rounded-md ${
-                                isCurrentPage
+                                Number(item) === currentPage
                                     ? "bg-blue-600 text-white"
                                     : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
                             }`}>
-                            {pageNum}
+                            {item}
                         </button>
-                    );
-                })}
+                    ),
+                )}
 
                 <button
                     onClick={goToNextPage}

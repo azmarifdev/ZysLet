@@ -42,7 +42,8 @@ const Navbar: FC = () => {
     const [searchResults, setSearchResults] = useState<SearchProduct[]>([]);
     const [isSearching, setIsSearching] = useState<boolean>(false);
     const [showSearchResults, setShowSearchResults] = useState<boolean>(false);
-    const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const searchAbortRef = useRef<AbortController | null>(null);
 
     // Use category hook to fetch categories from API
     const { categories } = useCategory();
@@ -104,13 +105,25 @@ const Navbar: FC = () => {
         };
     }, []);
 
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+            if (searchAbortRef.current) {
+                searchAbortRef.current.abort();
+            }
+        };
+    }, []);
+
     const handleSearchChange = useCallback(
         (e: ChangeEvent<HTMLInputElement>) => {
             const query = e.target.value;
             setSearchQuery(query);
 
-            // Clear previous timeout to prevent multiple API calls
-            if (searchTimeout) clearTimeout(searchTimeout);
+            // Clear previous timeout/request to prevent race conditions
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+            if (searchAbortRef.current) searchAbortRef.current.abort();
 
             if (query.length >= 2) {
                 setIsSearching(true);
@@ -118,10 +131,15 @@ const Navbar: FC = () => {
                 // Set a new timeout for debounced search
                 const timeout = setTimeout(async () => {
                     try {
+                        const controller = new AbortController();
+                        searchAbortRef.current = controller;
+
                         const params = new URLSearchParams();
                         params.append('search', query);
 
-                        const response = await fetch(`${config.BASE_URL}/api/v1/product/list?${params.toString()}`);
+                        const response = await fetch(`${config.BASE_URL}/api/v1/product/list?${params.toString()}`, {
+                            signal: controller.signal,
+                        });
 
                         if (!response.ok) {
                             throw new Error(`Error searching products: ${response.status}`);
@@ -138,6 +156,7 @@ const Navbar: FC = () => {
                         setSearchResults(filteredProducts);
                         setShowSearchResults(true);
                     } catch (error) {
+                        if ((error as Error).name === 'AbortError') return;
                         console.error('Error during search:', error);
                         setSearchResults([]);
                     } finally {
@@ -145,13 +164,13 @@ const Navbar: FC = () => {
                     }
                 }, 300); // Debounce for 300ms
 
-                setSearchTimeout(timeout);
+                searchTimeoutRef.current = timeout;
             } else {
                 setShowSearchResults(false);
                 setSearchResults([]);
             }
         },
-        [searchTimeout],
+        [],
     );
 
     const handleSearchResultClick = useCallback(

@@ -168,7 +168,13 @@ const ProductView: React.FC<ProductViewProps> = ({ product }) => {
     return (
         <div className="flex flex-col lg:flex-row lg:space-x-6 mb-12 md:mb-16">
             {/* Mobile product title - only visible on small screens */}
-            <ProductHeader productName={product?.title} rating={rating} reviewCount={reviewCount} isMobile={true} />
+            <ProductHeader
+                productName={product?.title}
+                rating={rating}
+                reviewCount={reviewCount}
+                isMobile={true}
+                productCode={product?.code}
+            />
 
             {/* Product Image Section */}
             <div className="lg:w-1/2 mb-6 lg:mb-0">
@@ -180,7 +186,13 @@ const ProductView: React.FC<ProductViewProps> = ({ product }) => {
             {/* Product Info Section */}
             <div className="lg:w-1/2">
                 {/* Desktop product title - hidden on mobile */}
-                <ProductHeader productName={product?.title} rating={rating} reviewCount={reviewCount} isMobile={false} />
+                <ProductHeader
+                    productName={product?.title}
+                    rating={rating}
+                    reviewCount={reviewCount}
+                    isMobile={false}
+                    productCode={product?.code}
+                />
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     {/* Price section */}

@@ -1,5 +1,5 @@
 export const config = {
-    BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000",
+    BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || "https://server.zyslet.com",
     WHATSAPP_NUMBER: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '8801810011145',
     WHATSAPP_CONFIRM_MESSAGE:
         process.env.NEXT_PUBLIC_WHATSAPP_CONFIRM_MESSAGE ||

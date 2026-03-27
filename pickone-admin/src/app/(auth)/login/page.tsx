@@ -12,12 +12,24 @@ import { Card, CardContent } from '@/components/ui/card';
 import BrandLogo from '@/components/reusable/BrandLogo';
 
 export default function LoginForm() {
+    const DEMO_EMAIL = 'zyslet@gmail.com';
+    const DEMO_PASSWORD = '@zyslet1234';
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const [loginUser, { isLoading }] = useLoginUserMutation();
     const router = useRouter();
+
+    const handleCopy = async (text: string, label: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success(`${label} copied`);
+        } catch (error) {
+            toast.error(`Failed to copy ${label.toLowerCase()}`);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -70,6 +82,34 @@ export default function LoginForm() {
                             Welcome Back
                         </h1>
                         <p className="text-gray-500">Sign in to your admin account</p>
+                        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-left">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CV Demo Access</p>
+                            <p className="text-xs text-blue-900 mt-1 mb-2">
+                                Copy credentials and paste into the login inputs.
+                            </p>
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Input value={DEMO_EMAIL} readOnly className="h-9 bg-white text-sm" />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-9 px-3 text-xs whitespace-nowrap"
+                                        onClick={() => handleCopy(DEMO_EMAIL, 'Email')}>
+                                        Copy
+                                    </Button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input value={DEMO_PASSWORD} readOnly className="h-9 bg-white text-sm" />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-9 px-3 text-xs whitespace-nowrap"
+                                        onClick={() => handleCopy(DEMO_PASSWORD, 'Password')}>
+                                        Copy
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Login Form */}
@@ -85,7 +125,7 @@ export default function LoginForm() {
                                     id="email"
                                     type="email"
                                     required
-                                    placeholder="Enter your email"
+                                    placeholder={DEMO_EMAIL}
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
@@ -105,7 +145,7 @@ export default function LoginForm() {
                                     id="password"
                                     type={showPassword ? 'text' : 'password'}
                                     required
-                                    placeholder="Enter your password"
+                                    placeholder={DEMO_PASSWORD}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"

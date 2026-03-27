@@ -171,6 +171,12 @@ const productSchema = new Schema<IProduct, IProductModel>(
    }
 );
 
+// Query indexes for faster product list/detail endpoints
+productSchema.index({ slug: 1 });
+productSchema.index({ code: 1 });
+productSchema.index({ category: 1, is_published: 1, createdAt: -1 });
+productSchema.index({ is_published: 1, createdAt: -1 });
+
 // Export all models
 export const ProductImage = model<IImage, IImageModel>(
    'ProductImage',

@@ -377,16 +377,20 @@ const getProduct = async (id: string) => {
          path: 'category',
          model: 'Category',
          select: 'title',
-      });
+      })
+      .lean();
 
    if (!product) throw new ApiError(StatusCodes.NOT_FOUND, 'Product not found');
 
    // Fetch reviews separately if not referenced in Product model
-   const reviews = await Review.find({ product_id: id, is_published: true });
+   const reviews = await Review.find({ product_id: id, is_published: true })
+      .select('name message rating images createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
 
    // Add reviews and calculate the average rating
    const productWithReviews = {
-      ...product.toObject(),
+      ...product,
       reviews,
       averageRating:
          reviews.length > 0
@@ -409,7 +413,8 @@ const getProduct = async (id: string) => {
          _id: { $ne: id }, // Exclude the current product
       })
          .limit(20)
-         .select('title slug thumbnail price discount'); // Get 20 products
+         .select('title slug thumbnail price discount')
+         .lean(); // Get 20 products
 
       productWithReviews.relatedProducts = relatedProducts;
    }
@@ -441,17 +446,21 @@ const getProductBySlug = async (slug: string) => {
          path: 'category',
          model: 'Category',
          select: 'title',
-      });
+      })
+      .lean();
 
    if (!product) throw new ApiError(StatusCodes.NOT_FOUND, 'Product not found');
    const id = product._id;
 
    // Fetch reviews separately if not referenced in Product model
-   const reviews = await Review.find({ product_id: id, is_published: true });
+   const reviews = await Review.find({ product_id: id, is_published: true })
+      .select('name message rating images createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
 
    // Add reviews and calculate the average rating
    const productWithReviews = {
-      ...product.toObject(),
+      ...product,
       reviews,
       averageRating:
          reviews.length > 0
@@ -474,7 +483,8 @@ const getProductBySlug = async (slug: string) => {
          _id: { $ne: id }, // Exclude the current product
       })
          .limit(20)
-         .select('title slug thumbnail price discount'); // Get 20 products
+         .select('title slug thumbnail price discount')
+         .lean(); // Get 20 products
 
       productWithReviews.relatedProducts = relatedProducts;
    }
@@ -577,7 +587,8 @@ const getAllProducts = async (
 
       .sort(sortConditions)
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
    // Get total count for pagination metadata
    const total = await Product.countDocuments(whereConditions);
@@ -690,7 +701,8 @@ const getAllProductsAdmin = async (
 
       .sort(sortConditions)
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
    // Get total count for pagination metadata
    const total = await Product.countDocuments(whereConditions);
